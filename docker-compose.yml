@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  translator-bot:
+    build: .
+    container_name: googlechat-translator
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./service-account-key.json:/app/service-account-key.json:ro
+    environment:
+      - NODE_ENV=production
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/service-account-key.json
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Nginx reverse proxy with SSL
+  nginx:
+    image: nginx:alpine
+    container_name: googlechat-translator-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - translator-bot
+    profiles:
+      - with-nginx
